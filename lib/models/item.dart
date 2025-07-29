@@ -1,14 +1,14 @@
 class Item {
   String title;
-  bool isDone;
+  bool done;
 
-  Item({required this.title, required this.isDone});
+  Item({required this.title, required this.done});
 
   factory Item.fromJson(Map<String, dynamic> json) {
-    return Item(title: json['title'] as String, isDone: json['isDone'] as bool);
+    return Item(title: json['title'] ?? '', done: json['done'] ?? false);
   }
 
   Map<String, dynamic> toJson() {
-    return {'title': title, 'isDone': isDone};
+    return {'title': title, 'done': done};
   }
 }

@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
 import 'models/item.dart';
 
-void main() {
-  runApp(const App());
-}
+void main() => runApp(MyApp());
 
-class App extends StatelessWidget {
-  const App({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Todo App',
+      title: 'Flutter Demo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.blue),
       home: HomePage(),
@@ -20,69 +21,88 @@ class App extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
-  final List<Item> items;
-
-  HomePage({super.key})
-    : items = [
-        Item(title: "Buy groceries", isDone: false),
-        Item(title: "Walk the dog", isDone: true),
-      ];
+  const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  var newTaskCtrl = TextEditingController();
+  List<Item> items = [];
+  final TextEditingController newTaskCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    loadData();
+  }
 
   void add() {
     if (newTaskCtrl.text.isEmpty) return;
-    setState(() {
-      widget.items.add(Item(title: newTaskCtrl.text, isDone: false));
 
-      newTaskCtrl.text = "";
+    setState(() {
+      items.add(Item(title: newTaskCtrl.text, done: false));
+      newTaskCtrl.clear();
+      save();
     });
   }
 
   void remove(int index) {
     setState(() {
-      widget.items.removeAt(index);
+      items.removeAt(index);
+      save();
     });
+  }
+
+  Future<void> save() async {
+    var prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'data',
+      jsonEncode(items.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  Future<void> loadData() async {
+    var prefs = await SharedPreferences.getInstance();
+    var data = prefs.getString('data');
+    if (data != null) {
+      List<dynamic> decoded = jsonDecode(data);
+      List<Item> result = decoded.map((x) => Item.fromJson(x)).toList();
+      setState(() {
+        items = result;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: TextFormField(
-          controller: newTaskCtrl, // VINCULA o campo ao controller
-          keyboardType: TextInputType.text,
-          style: TextStyle(color: Colors.black, fontSize: 24),
-          decoration: InputDecoration(
+        title: TextField(
+          controller: newTaskCtrl,
+          decoration: const InputDecoration(
             labelText: "Nova Tarefa",
             labelStyle: TextStyle(color: Colors.black),
           ),
+          style: const TextStyle(color: Colors.black),
         ),
       ),
       body: ListView.builder(
-        itemCount: widget.items.length,
-        itemBuilder: (BuildContext context, int index) {
-          final item = widget.items[index];
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+
           return Dismissible(
-            background: Container(color: Colors.red.withValues(alpha: 0.85)),
-            onDismissed: (direction) {
-              setState(() {
-                remove(index);
-              });
-            },
             key: Key(item.title),
+            onDismissed: (direction) => remove(index),
+            background: Container(color: Theme.of(context).primaryColorLight),
             child: CheckboxListTile(
               title: Text(item.title),
-              value: item.isDone,
-              onChanged: (value) {
+              value: item.done,
+              onChanged: (bool? value) {
                 setState(() {
-                  //atualiza o estado do item
-                  item.isDone = value!;
+                  item.done = value ?? false;
+                  save();
                 });
               },
             ),
@@ -92,7 +112,7 @@ class _HomePageState extends State<HomePage> {
       floatingActionButton: FloatingActionButton(
         onPressed: add,
         backgroundColor: Colors.blue,
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
       ),
     );
   }
